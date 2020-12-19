@@ -39,9 +39,10 @@ function getGeoJsonFiles(cities) {
     let percent = Math.round(100 / cities.length);
 
     // Prevent 429 HTTP error "Too Many Requests" and DoS attack
+    // Я уже получил пару банов от сервиса за DoS :)
     function* fetchCityData() {
-        for (let i = 1; i < cities.length; i++) {
-            yield getGeoJsonByCity(i).then(() => {
+        for (let i = 0; i < cities.length; i++) {
+            yield getGeoJsonByCity(cities[i]).then(() => {
                 fetchCityDataGenerator.next();
                 progress += percent;
                 console.log(`Progress: ${progress}%`);
