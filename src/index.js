@@ -1,4 +1,5 @@
 const Emitter = require('events');
+const path = require('path');
 const axios = require('axios');
 const fs = require('fs');
 
@@ -16,24 +17,36 @@ emitter.on(eventTypes['error'], onError);
 start();
 
 function start() {
-    getCities(`${__dirname}/assets/cities.txt`);
+    const citiesFile = path.resolve(__dirname, 'assets', 'cities.txt');
+    getCities(citiesFile);
 }
 
 function getCities(pathToCitiesFile) {
     fs.readFile(pathToCitiesFile, 'utf8', (err, data) => {
         if (err) emitter.emit(eventTypes['error'], err);
-        const cities = data.split('\n').filter(city => Boolean(city));
+        const cities = data
+            .replace(/\r/gm, "")
+            .split('\n')
+            .filter(city => Boolean(city));
         emitter.emit(eventTypes['gotCities'], cities);
     })
 }
 
 function getGeoJsonFiles(cities) {
-    setTimeout(() => {
-        getGeoJsonByCity(cities[0]).catch(err => console.log(err));
-    }, 100)
-    // for (let i = 0; i < cities.length; i++) {
-    //     getGeoJsonByCity(cities[i]);
-    // }
+    const fetchCityDataGenerator = fetchCityData();
+    fetchCityDataGenerator.next();
+    let progress = 0;
+    let percent = Math.round(100 / cities.length);
+
+    function* fetchCityData() {
+        for (let i = 1; i < cities.length; i++) {
+            yield getGeoJsonByCity(i).then(() => {
+                fetchCityDataGenerator.next();
+                progress += percent;
+                console.log(`Progress: ${progress}%`);
+            });
+        }
+    }
 }
 
 async function getGeoJsonByCity(cityName) {
@@ -48,8 +61,8 @@ async function getGeoJsonByCity(cityName) {
 }
 
 function saveGeoJson(city, geoJson) {
-    const folderPath = `${__dirname}/geoJsons`;
-    const filePath = `${folderPath}/${city}.json`;
+    const folderPath = path.resolve(__dirname, 'geoJsons');
+    const filePath = path.resolve(__dirname, 'geoJsons', `${city}.json`);
     if (!fs.existsSync(folderPath)) fs.mkdirSync(folderPath);
     fs.writeFile(filePath, geoJson, err => err && emitter.emit(eventTypes['error'], err));
 }
